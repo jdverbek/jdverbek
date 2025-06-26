@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8" />
-  <title>Medisch Verslag - iPhone Compatibel</title>
+  <title>Medisch Verslag met Richtlijnen</title>
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
     button { padding: 10px; font-size: 1em; margin-top: 10px; width: 100%; }
@@ -13,7 +13,7 @@
   </style>
 </head>
 <body>
-  <h1>🩺 Medisch verslag - iPhone vriendelijk</h1>
+  <h1>🩺 Medisch verslag - met richtlijnadvies</h1>
 
   <form method="post" action="/transcribe" enctype="multipart/form-data" id="uploadForm">
     <label for="verslag_type">Type verslag:</label>
@@ -22,6 +22,7 @@
       <option value="TEE">TEE</option>
       <option value="spoedconsult">Spoedconsult</option>
       <option value="raadpleging">Raadpleging</option>
+      <option value="consult">Consult</option>
     </select>
 
     <label>Upload audio:</label>
@@ -35,13 +36,19 @@
   <audio id="preview" controls style="margin-top:10px; display:none;"></audio>
 
   <form id="recordUploadForm" method="post" action="/transcribe" enctype="multipart/form-data" style="display:none;">
-    <input type="hidden" name="verslag_type" value="TTE" />
+    <input type="hidden" name="verslag_type" value="raadpleging" />
     <input type="file" name="audio_file" id="recordedAudioInput" />
   </form>
 
   <h2>Verslag</h2>
   <textarea id="verslagText" readonly>{{ transcript }}</textarea>
-  <button class="copy-button" onclick="copyVerslag()">📋 Kopieer verslag</button>
+  <button class="copy-button" onclick="copyToClipboard('verslagText')">📋 Kopieer verslag</button>
+
+  {% if advies %}
+  <h2>📘 Advies volgens ESC/AHA</h2>
+  <textarea id="adviesText" readonly>{{ advies }}</textarea>
+  <button class="copy-button" onclick="copyToClipboard('adviesText')">📋 Kopieer aanbevelingen</button>
+  {% endif %}
 
   <script>
     let recording = false;
@@ -52,15 +59,13 @@
 
       if (!recording) {
         navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-          mediaRecorder = new MediaRecorder(stream); // No mimeType for iOS Safari
+          mediaRecorder = new MediaRecorder(stream);
           chunks = [];
 
           mediaRecorder.ondataavailable = e => chunks.push(e.data);
           mediaRecorder.onstop = () => {
             const blob = new Blob(chunks, { type: mediaRecorder.mimeType });
-            const ext = mediaRecorder.mimeType.includes("mp4") ? "m4a" :
-                        mediaRecorder.mimeType.includes("webm") ? "webm" : "mp3";
-            const file = new File([blob], "dictaat_" + Date.now() + "." + ext, { type: mediaRecorder.mimeType });
+            const file = new File([blob], "dictaat_" + Date.now() + ".webm", { type: mediaRecorder.mimeType });
 
             const preview = document.getElementById("preview");
             preview.src = URL.createObjectURL(blob);
@@ -84,17 +89,16 @@
       } else {
         mediaRecorder.stop();
         recording = false;
-        const btn = document.getElementById("recordBtn");
         btn.textContent = "🔴 Start opname";
         btn.className = "recording";
       }
     }
 
-    function copyVerslag() {
-      const text = document.getElementById("verslagText");
+    function copyToClipboard(id) {
+      const text = document.getElementById(id);
       text.select();
       document.execCommand("copy");
-      alert("Verslag gekopieerd naar klembord.");
+      alert("Gekopieerd naar klembord.");
     }
   </script>
 </body>
