@@ -44,3 +44,7 @@ def transcribe():
         transcript = f"Fout tijdens transcriptie: {str(e)}"
 
     return render_template("index.html", transcript=transcript)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
+
