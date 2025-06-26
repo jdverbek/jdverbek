@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Medical Dictation Upload</title>
+</head>
+<body>
+    <h1>Upload Medical Audio File (MP3, M4A, etc.)</h1>
+    <form method="post" action="/transcribe" enctype="multipart/form-data">
+        <input type="file" name="audio_file" accept="audio/*" required>
+        <br><br>
+        <button type="submit">🚀 Start Transcriptie</button>
+    </form>
+
+    {% if transcript %}
+        <h2>Transcriptie Resultaat</h2>
+        <pre>{{ transcript }}</pre>
+    {% endif %}
+</body>
+</html>
