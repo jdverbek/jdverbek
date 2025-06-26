@@ -1,5 +1,6 @@
 import os
 import io
+import datetime
 import requests
 from flask import Flask, request, render_template
 
@@ -14,12 +15,12 @@ def call_gpt(messages, temperature=0.3):
         "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
     }
-    payload = {
+    data = {
         "model": "gpt-4o",
         "temperature": temperature,
         "messages": messages
     }
-    response = requests.post(GPT_URL, headers=headers, json=payload, timeout=60)
+    response = requests.post(GPT_URL, headers=headers, json=data, timeout=90)
     response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"]
 
@@ -30,7 +31,7 @@ def index():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     file = request.files.get("audio_file")
-    type_verslag = request.form.get("verslag_type", "consult")
+    verslag_type = request.form.get("verslag_type", "consult")
     if not file or file.filename == "":
         return render_template("index.html", transcript="⚠️ Geen bestand geselecteerd.")
 
@@ -48,37 +49,45 @@ def transcribe():
     }
 
     try:
-        # STAP 1: Transcriptie (Whisper)
-        response = requests.post(WHISPER_URL, headers=headers, files=files, data=data, timeout=90)
+        response = requests.post(WHISPER_URL, headers=headers, files=files, data=data, timeout=120)
         response.raise_for_status()
         raw_text = response.json().get("text", "")
 
-        # STAP 2: Terminologiecorrectie
         corrected = call_gpt([
-            {"role": "system", "content": "Corrigeer deze transcriptie voor correct medisch Nederlands, grammatica, en terminologie."},
+            {"role": "system", "content": "Corrigeer deze transcriptie in correct medisch Nederlands."},
             {"role": "user", "content": raw_text}
         ])
 
-        # STAP 3: Validatie
-        validated = call_gpt([
-            {"role": "system", "content": "Evalueer de tekst op inconsistenties (geslacht, eenheden, medische plausibiliteit), en verbeter waar nodig."},
+        template_instruction = ""
+        if verslag_type == "TTE":
+            today = datetime.date.today().strftime("%d-%m-%Y")
+            template_instruction = f"Gebruik het volgende TTE-sjabloon en vul aan met enkel wat vermeld wordt. Laat incomplete zinnen weg. Gebruik 'normaal' voor niet-vermelde structuren:
+TTE ikv. (raadpleging/spoedconsult/consult) op {today}: Linker ventrikel: (...)troof met EDD (...) mm, IVS (...) mm, PW (...) mm. Globale functie: (goed/licht gedaald/matig gedaald/ernstig gedaald) met LVEF (...)% (geschat/monoplane/biplane). Regionaal: (geen kinetiekstoornissen/zone van hypokinesie/zone van akinesie) Rechter ventrikel: (...)troof, globale functie: (...) met TAPSE (...) mm. Diastole: (normaal/vertraagde relaxatie/dysfunctie graad 2/ dysfunctie graad 3) met E (...) cm/s, A (...) cm/s, E DT (...) ms, E' septaal (...) cm/s, E/E' (...). L-golf: (ja/neen). Atria: LA (normaal/licht gedilateerd/sterk gedilateerd) (...) mm. Aortadimensies: (normaal/gedilateerd) met sinus (...) mm, sinotubulair (...) mm, ascendens (...) mm. Mitralisklep: morfologisch (normaal/sclerotisch/verdikt/prolaps/restrictief). insufficiëntie: (...), stenose: geen. Aortaklep: (tricuspied/bicuspied), morfologisch (normaal/sclerotisch/mild verkalkt/matig verkalkt/ernstig verkalkt). Functioneel: insufficiëntie: geen, stenose: geen. Pulmonalisklep: insufficiëntie: spoor, stenose: geen. Tricuspiedklep: insufficiëntie: (...), geschatte RVSP: ( mmHg/niet opmeetbaar) + CVD (...) mmHg gezien vena cava inferior: (...) mm, variabiliteit: (...). Pericard: (...)."
+        elif verslag_type == "TEE":
+            today = datetime.date.today().strftime("%d-%m-%Y")
+            template_instruction = f"Gebruik onderstaand TEE sjabloon en vul enkel aan met relevante info. Laat onvolledige zinnen weg. Vul defaults in waar nodig:
+Onderzoeksdatum: {today}
+Bevindingen: TEE ONDERZOEK : 3D TEE met (Philips/GE) toestel
+Indicatie: (...)
+Afname mondeling consent: dr. Verbeke. Informed consent: patiënt kreeg uitleg over aard onderzoek, mogelijke resultaten en procedurele risico’s en verklaart zich hiermee akkoord.
+Supervisie: dr (...)
+Verpleegkundige: (...)
+Anesthesist: dr. (...)
+Locatie: endoscopie 3B
+Sedatie met (...)
+(...) introductie TEE probe, (...) verloop van onderzoek zonder complicatie.
+VERSLAG:
+- Linker ventrikel is (...)
+- Rechter ventrikel is (...)
+- De atria zijn (...)
+- Linker hartoortje is (...) etc..."
+
+        structured = call_gpt([
+            {"role": "system", "content": template_instruction},
             {"role": "user", "content": corrected}
         ])
 
-        # STAP 4: Gestructureerd verslag
-        template_prompt = f"Gestructureerd verslag ({type_verslag}). Splits op in Bevindingen, Conclusie en Aanbeveling. Gebruik medisch Nederlands."
-        structured = call_gpt([
-            {"role": "system", "content": template_prompt},
-            {"role": "user", "content": validated}
-        ])
-
-        # STAP 5: Advies (ICD-10 + richtlijnen)
-        advies = call_gpt([
-            {"role": "system", "content": "Stel een diagnose op basis van dit verslag, geef een ICD-10 code, aanbeveling volgens richtlijnen (met Class en Level of Evidence) en een link naar de bron."},
-            {"role": "user", "content": structured}
-        ])
-
-        return render_template("index.html", transcript=structured, advies=advies, raw=raw_text)
+        return render_template("index.html", transcript=structured, raw=raw_text)
 
     except Exception as e:
         return render_template("index.html", transcript=f"⚠️ Fout: {str(e)}")
