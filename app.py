@@ -1,3 +1,4 @@
+
 import os
 import io
 import datetime
@@ -58,29 +59,41 @@ def transcribe():
             {"role": "user", "content": raw_text}
         ])
 
-        template_instruction = ""
+        today = datetime.date.today().strftime("%d-%m-%Y")
         if verslag_type == "TTE":
-            today = datetime.date.today().strftime("%d-%m-%Y")
-            template_instruction = f"Gebruik het volgende TTE-sjabloon en vul aan met enkel wat vermeld wordt. Laat incomplete zinnen weg. Gebruik 'normaal' voor niet-vermelde structuren:
-TTE ikv. (raadpleging/spoedconsult/consult) op {today}: Linker ventrikel: (...)troof met EDD (...) mm, IVS (...) mm, PW (...) mm. Globale functie: (goed/licht gedaald/matig gedaald/ernstig gedaald) met LVEF (...)% (geschat/monoplane/biplane). Regionaal: (geen kinetiekstoornissen/zone van hypokinesie/zone van akinesie) Rechter ventrikel: (...)troof, globale functie: (...) met TAPSE (...) mm. Diastole: (normaal/vertraagde relaxatie/dysfunctie graad 2/ dysfunctie graad 3) met E (...) cm/s, A (...) cm/s, E DT (...) ms, E' septaal (...) cm/s, E/E' (...). L-golf: (ja/neen). Atria: LA (normaal/licht gedilateerd/sterk gedilateerd) (...) mm. Aortadimensies: (normaal/gedilateerd) met sinus (...) mm, sinotubulair (...) mm, ascendens (...) mm. Mitralisklep: morfologisch (normaal/sclerotisch/verdikt/prolaps/restrictief). insufficiëntie: (...), stenose: geen. Aortaklep: (tricuspied/bicuspied), morfologisch (normaal/sclerotisch/mild verkalkt/matig verkalkt/ernstig verkalkt). Functioneel: insufficiëntie: geen, stenose: geen. Pulmonalisklep: insufficiëntie: spoor, stenose: geen. Tricuspiedklep: insufficiëntie: (...), geschatte RVSP: ( mmHg/niet opmeetbaar) + CVD (...) mmHg gezien vena cava inferior: (...) mm, variabiliteit: (...). Pericard: (...)."
+            template_instruction = f"""Gebruik het volgende TTE-sjabloon en vul aan met enkel wat vermeld wordt. Laat incomplete zinnen weg. Gebruik 'normaal' voor niet-vermelde structuren:
+TTE ikv. (raadpleging/spoedconsult/consult) op {today}: 
+Linker ventrikel: (...)troof met EDD (...) mm, IVS (...) mm, PW (...) mm. Globale functie: (goed/licht gedaald/matig gedaald/ernstig gedaald) met LVEF (...)% (geschat/monoplane/biplane).
+Regionaal: (geen kinetiekstoornissen/zone van hypokinesie/zone van akinesie)
+Rechter ventrikel: (...)troof, globale functie: (...) met TAPSE (...) mm.
+Diastole: (normaal/vertraagde relaxatie/dysfunctie graad 2/ dysfunctie graad 3) met E (...) cm/s, A (...) cm/s, E DT (...) ms, E' septaal (...) cm/s, E/E' (...). L-golf: (ja/neen).
+Atria: LA (normaal/licht gedilateerd/sterk gedilateerd) (...) mm.
+Aortadimensies: (normaal/gedilateerd) met sinus (...) mm, sinotubulair (...) mm, ascendens (...) mm.
+Mitralisklep: morfologisch (normaal/sclerotisch/verdikt/prolaps/restrictief). insufficiëntie: (...), stenose: geen.
+Aortaklep: (tricuspied/bicuspied), morfologisch (normaal/sclerotisch/mild verkalkt/matig verkalkt/ernstig verkalkt). Functioneel: insufficiëntie: geen, stenose: geen.
+Pulmonalisklep: insufficiëntie: spoor, stenose: geen.
+Tricuspiedklep: insufficiëntie: (...), geschatte RVSP: ( mmHg/niet opmeetbaar) + CVD (...) mmHg gezien vena cava inferior: (...) mm, variabiliteit: (...).
+Pericard: (...)."""
         elif verslag_type == "TEE":
-            today = datetime.date.today().strftime("%d-%m-%Y")
-            template_instruction = f"Gebruik onderstaand TEE sjabloon en vul enkel aan met relevante info. Laat onvolledige zinnen weg. Vul defaults in waar nodig:
+            template_instruction = f"""Gebruik onderstaand TEE sjabloon en vul enkel aan met relevante info. Laat onvolledige zinnen weg. Vul defaults in waar nodig:
 Onderzoeksdatum: {today}
 Bevindingen: TEE ONDERZOEK : 3D TEE met (Philips/GE) toestel
-Indicatie: (...)
+Indicatie: (klepfunctie nl: .../vermoeden endocarditis/cardioversie).
 Afname mondeling consent: dr. Verbeke. Informed consent: patiënt kreeg uitleg over aard onderzoek, mogelijke resultaten en procedurele risico’s en verklaart zich hiermee akkoord.
-Supervisie: dr (...)
-Verpleegkundige: (...)
-Anesthesist: dr. (...)
+Supervisie: dr (Dujardin/Bergez/Anné/de Ceuninck/Vanhaverbeke/Gillis/Van de Walle/Muyldermans)
+Verpleegkundige: (Sieglien/Nathalie/Tom/Bruno)
+Anesthesist: dr. (naam)
 Locatie: endoscopie 3B
-Sedatie met (...)
-(...) introductie TEE probe, (...) verloop van onderzoek zonder complicatie.
+Sedatie met (Midazolam/Propofol) en topicale Xylocaine spray.
+(Vlotte/moeizame) introductie TEE probe, (Vlot/moeizaam) verloop van onderzoek zonder complicatie.
 VERSLAG:
-- Linker ventrikel is (...)
-- Rechter ventrikel is (...)
-- De atria zijn (...)
-- Linker hartoortje is (...) etc..."
+- Linker ventrikel is (eutroof/hypertroof), (niet/mild/matig/ernstig) gedilateerd en (normocontractiel/licht hypocontractiel/matig hypocontractiel/ernstig hypocontractiel) (zonder/met) regionale wandbewegingstoornissen.
+- Rechter ventrikel is (eutroof/hypertroof), (niet/mild/matig/ernstig) gedilateerd en (normocontractiel/licht hypocontractiel/matig hypocontractiel/ernstig hypocontractiel).
+- De atria zijn (niet/licht/matig/sterk) gedilateerd.
+..."""
+
+        else:
+            template_instruction = f"Schrijf een beknopt medisch verslag in het Nederlands."
 
         structured = call_gpt([
             {"role": "system", "content": template_instruction},
