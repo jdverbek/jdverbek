@@ -6,7 +6,8 @@ from flask import Flask, request, render_template
 app = Flask(__name__)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_API_URL = "https://api.openai.com/v1/audio/transcriptions"
+WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions"
+GPT_URL = "https://api.openai.com/v1/chat/completions"
 
 
 @app.route("/", methods=["GET"])
@@ -41,17 +42,38 @@ def transcribe():
     }
 
     try:
-        response = requests.post(
-            OPENAI_API_URL,
-            headers=headers,
-            files=files,
-            data=data,
-            timeout=90
-        )
+        # Whisper transcriptie
+        response = requests.post(WHISPER_URL, headers=headers, files=files, data=data, timeout=90)
         response.raise_for_status()
-        transcript = response.json().get("text", "[Leeg resultaat]")
+        raw_transcript = response.json().get("text", "[Leeg resultaat]")
+
+        # GPT-4o verbetering met medische instructie
+        gpt_payload = {
+            "model": "gpt-4o",
+            "temperature": 0.3,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "Je bent een medisch taalmodel. Corrigeer en verbeter onderstaande transcriptie zodat deze grammaticaal correct is, coherent, en correct medisch Nederlands gebruikt."
+                },
+                {
+                    "role": "user",
+                    "content": raw_transcript
+                }
+            ]
+        }
+
+        gpt_headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        gpt_response = requests.post(GPT_URL, headers=gpt_headers, json=gpt_payload, timeout=90)
+        gpt_response.raise_for_status()
+        transcript = gpt_response.json()["choices"][0]["message"]["content"]
+
     except Exception as e:
-        transcript = f"Fout tijdens transcriptie: {str(e)}"
+        transcript = f"Fout tijdens transcriptie of verbetering: {str(e)}"
 
     return render_template("index.html", transcript=transcript)
 
