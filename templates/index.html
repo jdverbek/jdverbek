@@ -43,41 +43,71 @@
   <textarea readonly>{{ raw }}</textarea>
 
   <script>
-    let recording = false;
-    let mediaRecorder, chunks = [];
+let recording = false;
+let mediaRecorder, chunks = [];
 
-    function toggleRecord() {
-      const btn = document.getElementById("recordBtn");
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
 
-      if (!recording) {
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-          mediaRecorder = new MediaRecorder(stream);
-          mediaRecorder.start();
-          btn.textContent = "🔵 Stop opname";
-          btn.className = "stopping";
-          recording = true;
-          chunks = [];
+function getSupportedMimeType() {
+  const types = [
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/webm",
+    "audio/wav",
+    "audio/ogg"
+  ];
+  for (let type of types) {
+    if (MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return "";
+}
 
-          mediaRecorder.ondataavailable = e => chunks.push(e.data);
-          mediaRecorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'audio/webm' });
-            const file = new File([blob], "dictaat_" + Date.now() + ".webm", { type: 'audio/webm' });
+function toggleRecord() {
+  const btn = document.getElementById("recordBtn");
 
-            const fileInput = document.getElementById("recordedAudioInput");
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            fileInput.files = dataTransfer.files;
+  if (!recording) {
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      const mimeType = getSupportedMimeType();
+      mediaRecorder = new MediaRecorder(stream, { mimeType });
+      chunks = [];
 
-            document.getElementById("recordUploadForm").submit();
-          };
-        });
-      } else {
-        mediaRecorder.stop();
-        recording = false;
-        btn.textContent = "🔴 Start opname";
-        btn.className = "recording";
-      }
-    }
-  </script>
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mimeType });
+        const ext = mimeType.includes("mpeg") ? "mp3" :
+                    mimeType.includes("webm") ? "webm" :
+                    mimeType.includes("ogg") ? "ogg" :
+                    mimeType.includes("wav") ? "wav" :
+                    mimeType.includes("mp4") ? "m4a" : "bin";
+        const filename = "dictaat_" + Date.now() + "." + ext;
+        const file = new File([blob], filename, { type: mimeType });
+
+        const fileInput = document.getElementById("recordedAudioInput");
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+
+        document.getElementById("recordUploadForm").submit();
+      };
+
+      mediaRecorder.start();
+      btn.textContent = "🔵 Stop opname";
+      btn.className = "stopping";
+      recording = true;
+    }).catch(err => {
+      alert("Fout bij toegang tot microfoon: " + err);
+    });
+  } else {
+    mediaRecorder.stop();
+    recording = false;
+    const btn = document.getElementById("recordBtn");
+    btn.textContent = "🔴 Start opname";
+    btn.className = "recording";
+  }
+}
+</script>
+
 </body>
 </html>
