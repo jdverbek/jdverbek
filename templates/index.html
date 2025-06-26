@@ -1,81 +1,83 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-    <meta charset="UTF-8">
-    <title>Medisch Transcriptiesysteem</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
-        textarea { width: 100%; min-height: 200px; font-family: monospace; }
-        select, button, input[type="file"] { margin-top: 10px; display: block; width: 100%; }
-        .section { margin-top: 30px; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Transcriptie Medisch Verslag</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
+    button { padding: 10px; font-size: 1em; margin-top: 10px; width: 100%; }
+    .recording { background-color: red; color: white; }
+    .stopping { background-color: blue; color: white; }
+    textarea { width: 100%; min-height: 200px; margin-top: 10px; font-family: monospace; }
+  </style>
 </head>
 <body>
-    <h1>🩺 Transcriptie & Medisch Verslag</h1>
+  <h1>🩺 Dicteer of upload voor verslag</h1>
 
-    <form method="post" action="/transcribe" enctype="multipart/form-data">
-        <label for="verslag_type">Verslagtype:</label>
-        <select name="verslag_type" id="verslag_type">
-            <option value="TTE">TTE</option>
-            <option value="TEE">TEE</option>
-            <option value="coronarografie">Coronarografie</option>
-            <option value="consultatie">Consultatie</option>
-            <option value="consult">Consult</option>
-        </select>
+  <form method="post" action="/transcribe" enctype="multipart/form-data" id="uploadForm">
+    <label for="verslag_type">Type verslag:</label>
+    <select name="verslag_type">
+      <option value="TTE">TTE</option>
+      <option value="TEE">TEE</option>
+    </select>
 
-        <label for="audio_file">Audio uploaden:</label>
-        <input type="file" name="audio_file" accept="audio/*" required>
+    <label>Upload audio:</label>
+    <input type="file" name="audio_file" id="audioInput" accept="audio/*" />
 
-        <button type="submit">🚀 Start transcriptie</button>
-    </form>
+    <button type="submit">Upload en verwerk</button>
+  </form>
 
-    <div class="section">
-        <h2>Gestructureerd verslag</h2>
-        <textarea readonly>{{ transcript }}</textarea>
-    </div>
+  <h3>🎙️ Of dicteer:</h3>
+  <button id="recordBtn" onclick="toggleRecord()">🔴 Start opname</button>
+  <audio id="preview" controls style="display:none; margin-top:10px;"></audio>
 
-    <div class="section">
-        <h2>Advies (ICD-10 & Richtlijnen)</h2>
-        <textarea readonly>{{ advies }}</textarea>
-    </div>
+  <form id="recordUploadForm" method="post" action="/transcribe" enctype="multipart/form-data" style="display:none;">
+    <input type="hidden" name="verslag_type" value="TTE" />
+    <input type="file" name="audio_file" id="recordedAudioInput" />
+  </form>
 
-    <div class="section">
-        <h2>Ruwe transcriptie</h2>
-        <textarea readonly>{{ raw }}</textarea>
-    </div>
+  <h2>Verslag</h2>
+  <textarea readonly>{{ transcript }}</textarea>
 
-    <!-- Dicteerknop -->
-    <div class="section">
-        <h2>🎙️ Live dicteren (experimenteel)</h2>
-        <button onclick="startDictation()">Start dicteren</button>
-        <p id="status"></p>
-        <audio id="preview" controls style="margin-top:10px;"></audio>
-    </div>
+  <h2>Originele transcriptie</h2>
+  <textarea readonly>{{ raw }}</textarea>
 
-    <script>
-    function startDictation() {
-        const status = document.getElementById('status');
-        const preview = document.getElementById('preview');
-        status.textContent = "⏺️ Opname gestart...";
+  <script>
+    let recording = false;
+    let mediaRecorder, chunks = [];
 
+    function toggleRecord() {
+      const btn = document.getElementById("recordBtn");
+
+      if (!recording) {
         navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            const mediaRecorder = new MediaRecorder(stream);
-            const chunks = [];
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.start();
+          btn.textContent = "🔵 Stop opname";
+          btn.className = "stopping";
+          recording = true;
+          chunks = [];
 
-            mediaRecorder.ondataavailable = e => chunks.push(e.data);
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(chunks, { type: 'audio/webm' });
-                const url = URL.createObjectURL(blob);
-                preview.src = url;
-                status.textContent = "✅ Opname klaar – download of upload handmatig";
-            };
+          mediaRecorder.ondataavailable = e => chunks.push(e.data);
+          mediaRecorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'audio/webm' });
+            const file = new File([blob], "dictaat_" + Date.now() + ".webm", { type: 'audio/webm' });
 
-            mediaRecorder.start();
-            setTimeout(() => mediaRecorder.stop(), 15000); // 15 sec max
-        }).catch(err => {
-            status.textContent = "❌ Fout bij microfoon: " + err;
+            const fileInput = document.getElementById("recordedAudioInput");
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+
+            document.getElementById("recordUploadForm").submit();
+          };
         });
+      } else {
+        mediaRecorder.stop();
+        recording = false;
+        btn.textContent = "🔴 Start opname";
+        btn.className = "recording";
+      }
     }
-    </script>
+  </script>
 </body>
 </html>
