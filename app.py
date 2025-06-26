@@ -9,74 +9,79 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions"
 GPT_URL = "https://api.openai.com/v1/chat/completions"
 
+def call_gpt(messages, temperature=0.3):
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "gpt-4o",
+        "temperature": temperature,
+        "messages": messages
+    }
+    response = requests.post(GPT_URL, headers=headers, json=payload, timeout=60)
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"]
 
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
 
-
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
-    if "audio_file" not in request.files:
-        return "No file part", 400
+    file = request.files.get("audio_file")
+    type_verslag = request.form.get("verslag_type", "consult")
+    if not file or file.filename == "":
+        return render_template("index.html", transcript="⚠️ Geen bestand geselecteerd.")
 
-    file = request.files["audio_file"]
-    if file.filename == "":
-        return "No selected file", 400
-
-    audio_bytes = file.read()
-    audio_stream = io.BytesIO(audio_bytes)
-
+    audio_stream = io.BytesIO(file.read())
     files = {
         "file": (file.filename, audio_stream, file.content_type)
     }
-
     data = {
         "model": "whisper-1",
         "language": "nl",
         "temperature": 0.0
     }
-
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}"
     }
 
     try:
-        # Whisper transcriptie
+        # STAP 1: Transcriptie (Whisper)
         response = requests.post(WHISPER_URL, headers=headers, files=files, data=data, timeout=90)
         response.raise_for_status()
-        raw_transcript = response.json().get("text", "[Leeg resultaat]")
+        raw_text = response.json().get("text", "")
 
-        # GPT-4o verbetering met medische instructie
-        gpt_payload = {
-            "model": "gpt-4o",
-            "temperature": 0.3,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "Je bent een medisch taalmodel. Corrigeer en verbeter onderstaande transcriptie zodat deze grammaticaal correct is, coherent, en correct medisch Nederlands gebruikt."
-                },
-                {
-                    "role": "user",
-                    "content": raw_transcript
-                }
-            ]
-        }
+        # STAP 2: Terminologiecorrectie
+        corrected = call_gpt([
+            {"role": "system", "content": "Corrigeer deze transcriptie voor correct medisch Nederlands, grammatica, en terminologie."},
+            {"role": "user", "content": raw_text}
+        ])
 
-        gpt_headers = {
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json"
-        }
+        # STAP 3: Validatie
+        validated = call_gpt([
+            {"role": "system", "content": "Evalueer de tekst op inconsistenties (geslacht, eenheden, medische plausibiliteit), en verbeter waar nodig."},
+            {"role": "user", "content": corrected}
+        ])
 
-        gpt_response = requests.post(GPT_URL, headers=gpt_headers, json=gpt_payload, timeout=90)
-        gpt_response.raise_for_status()
-        transcript = gpt_response.json()["choices"][0]["message"]["content"]
+        # STAP 4: Gestructureerd verslag
+        template_prompt = f"Gestructureerd verslag ({type_verslag}). Splits op in Bevindingen, Conclusie en Aanbeveling. Gebruik medisch Nederlands."
+        structured = call_gpt([
+            {"role": "system", "content": template_prompt},
+            {"role": "user", "content": validated}
+        ])
+
+        # STAP 5: Advies (ICD-10 + richtlijnen)
+        advies = call_gpt([
+            {"role": "system", "content": "Stel een diagnose op basis van dit verslag, geef een ICD-10 code, aanbeveling volgens richtlijnen (met Class en Level of Evidence) en een link naar de bron."},
+            {"role": "user", "content": structured}
+        ])
+
+        return render_template("index.html", transcript=structured, advies=advies, raw=raw_text)
 
     except Exception as e:
-        transcript = f"Fout tijdens transcriptie of verbetering: {str(e)}"
-
-    return render_template("index.html", transcript=transcript)
-
+        return render_template("index.html", transcript=f"⚠️ Fout: {str(e)}")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
