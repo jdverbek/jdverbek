@@ -52,13 +52,15 @@
 
       if (!recording) {
         navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-          mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+          mediaRecorder = new MediaRecorder(stream); // No mimeType for iOS Safari
           chunks = [];
 
           mediaRecorder.ondataavailable = e => chunks.push(e.data);
           mediaRecorder.onstop = () => {
-            const blob = new Blob(chunks, { type: "audio/webm" });
-            const file = new File([blob], "dictaat_" + Date.now() + ".webm", { type: "audio/webm" });
+            const blob = new Blob(chunks, { type: mediaRecorder.mimeType });
+            const ext = mediaRecorder.mimeType.includes("mp4") ? "m4a" :
+                        mediaRecorder.mimeType.includes("webm") ? "webm" : "mp3";
+            const file = new File([blob], "dictaat_" + Date.now() + "." + ext, { type: mediaRecorder.mimeType });
 
             const preview = document.getElementById("preview");
             preview.src = URL.createObjectURL(blob);
