@@ -1,8 +1,7 @@
 import os
 import io
-import tempfile
 import requests
-from flask import Flask, request, render_template, redirect, url_for
+from flask import Flask, request, render_template
 
 app = Flask(__name__)
 
@@ -28,16 +27,27 @@ def transcribe():
     audio_stream = io.BytesIO(audio_bytes)
 
     files = {
-        "file": (file.filename, audio_stream, file.content_type),
-        "model": (None, "whisper-1"),
-        "language": (None, "nl"),
+        "file": (file.filename, audio_stream, file.content_type)
     }
+
+    data = {
+        "model": "whisper-1",
+        "language": "nl",
+        "temperature": 0.0
+    }
+
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}"
     }
 
     try:
-        response = requests.post(OPENAI_API_URL, headers=headers, files=files, timeout=60)
+        response = requests.post(
+            OPENAI_API_URL,
+            headers=headers,
+            files=files,
+            data=data,
+            timeout=90
+        )
         response.raise_for_status()
         transcript = response.json().get("text", "[Leeg resultaat]")
     except Exception as e:
@@ -45,6 +55,6 @@ def transcribe():
 
     return render_template("index.html", transcript=transcript)
 
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
-
