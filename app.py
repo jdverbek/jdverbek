@@ -62,7 +62,7 @@ def transcribe():
         today = datetime.date.today().strftime("%d-%m-%Y")
 
         if verslag_type == "TTE":
-            template_instruction = f"""Gebruik het volgende TTE-sjabloon. Vul alleen elementen in die expliciet vermeld worden. Voor niet-besproken structuren, beschrijf als normaal. Vermijd incomplete zinnen:
+            template_instruction = f"""Gebruik uitsluitend onderstaand TTE-verslagformat. Vul alleen velden in die expliciet genoemd zijn. Vermijd incomplete zinnen. Indien waarden niet vermeld zijn, laat ze weg en herschrijf de zin grammaticaal correct. Beschrijf structuren als 'normaal' indien niet besproken. GEEN voorgeschiedenis, context of advies:
 TTE ikv. (raadpleging/spoedconsult/consult) op {today}:
 Linker ventrikel: (...)troof met EDD (...) mm, IVS (...) mm, PW (...) mm. Globale functie: (goed/licht gedaald/matig gedaald/ernstig gedaald) met LVEF (...)% (geschat/monoplane/biplane).
 Regionaal: (geen kinetiekstoornissen/zone van hypokinesie/zone van akinesie)
@@ -76,7 +76,7 @@ Pulmonalisklep: insufficiëntie: spoor, stenose: geen.
 Tricuspiedklep: insufficiëntie: (...), geschatte RVSP: ( mmHg/niet opmeetbaar) + CVD (...) mmHg gezien vena cava inferior: (...) mm, variabiliteit: (...).
 Pericard: (...)."""
         elif verslag_type == "TEE":
-            template_instruction = f"""Gebruik onderstaand TEE-sjabloon. Vul alleen aan met relevante info die expliciet genoemd is. Gebruik defaults voor structuren die niet besproken zijn. Vermijd incomplete of lege zinnen:
+            template_instruction = f"""Gebruik uitsluitend onderstaand TEE-verslagformat. Vul alleen expliciet genoemde zaken in. Laat velden weg indien niet vermeld en herschrijf zinnen grammaticaal correct. Gebruik defaults enkel voor structuren die niet besproken zijn. GEEN voorgeschiedenis of advies:
 Onderzoeksdatum: {today}
 Bevindingen: TEE ONDERZOEK : 3D TEE met (Philips/GE) toestel
 Indicatie: (...)
@@ -131,6 +131,9 @@ VERSLAG:
                     "content": structured
                 }
             ])
+
+        if verslag_type in ["TTE", "TEE"]:
+            return render_template("index.html", transcript=structured)
 
         return render_template("index.html", transcript=structured, advies=advies)
 
