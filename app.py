@@ -58,15 +58,59 @@ def transcribe():
             {"role": "user", "content": raw_text}
         ])
 
-        instruction = (
-            f"Schrijf een gestructureerd medisch verslag voor een cardiologische {verslag_type}, "
-            "met relevante secties zoals voorgeschiedenis, anamnese, klinisch onderzoek, aanvullend onderzoek, "
-            "thuismedicatie, conclusie en beleid. Vermeld enkel wat expliciet gezegd wordt. Laat irrelevante of "
-            "niet-gevulde onderdelen weg."
-        )
+        template_instruction = ""
+        today = datetime.date.today().strftime("%d-%m-%Y")
+
+        if verslag_type == "TTE":
+            template_instruction = f"""Gebruik het volgende TTE-sjabloon. Vul alleen elementen in die expliciet vermeld worden. Voor niet-besproken structuren, beschrijf als normaal. Vermijd incomplete zinnen:
+TTE ikv. (raadpleging/spoedconsult/consult) op {today}:
+Linker ventrikel: (...)troof met EDD (...) mm, IVS (...) mm, PW (...) mm. Globale functie: (goed/licht gedaald/matig gedaald/ernstig gedaald) met LVEF (...)% (geschat/monoplane/biplane).
+Regionaal: (geen kinetiekstoornissen/zone van hypokinesie/zone van akinesie)
+Rechter ventrikel: (...)troof, globale functie: (...) met TAPSE (...) mm.
+Diastole: (normaal/vertraagde relaxatie/dysfunctie graad 2/ dysfunctie graad 3) met E (...) cm/s, A (...) cm/s, E DT (...) ms, E' septaal (...) cm/s, E/E' (...). L-golf: (ja/neen).
+Atria: LA (normaal/licht gedilateerd/sterk gedilateerd) (...) mm.
+Aortadimensies: (normaal/gedilateerd) met sinus (...) mm, sinotubulair (...) mm, ascendens (...) mm.
+Mitralisklep: morfologisch (normaal/sclerotisch/verdikt/prolaps/restrictief). insufficiëntie: (...), stenose: geen.
+Aortaklep: (tricuspied/bicuspied), morfologisch (normaal/sclerotisch/mild verkalkt/matig verkalkt/ernstig verkalkt). Functioneel: insufficiëntie: geen, stenose: geen.
+Pulmonalisklep: insufficiëntie: spoor, stenose: geen.
+Tricuspiedklep: insufficiëntie: (...), geschatte RVSP: ( mmHg/niet opmeetbaar) + CVD (...) mmHg gezien vena cava inferior: (...) mm, variabiliteit: (...).
+Pericard: (...)."""
+        elif verslag_type == "TEE":
+            template_instruction = f"""Gebruik onderstaand TEE-sjabloon. Vul alleen aan met relevante info die expliciet genoemd is. Gebruik defaults voor structuren die niet besproken zijn. Vermijd incomplete of lege zinnen:
+Onderzoeksdatum: {today}
+Bevindingen: TEE ONDERZOEK : 3D TEE met (Philips/GE) toestel
+Indicatie: (...)
+Afname mondeling consent: dr. Verbeke. Informed consent: patiënt kreeg uitleg over aard onderzoek, mogelijke resultaten en procedurele risico’s en verklaart zich hiermee akkoord.
+Supervisie: dr (...)
+Verpleegkundige: (...)
+Anesthesist: dr. (...)
+Locatie: endoscopie 3B
+Sedatie met (Midazolam/Propofol) en topicale Xylocaine spray.
+(Vlotte/moeizame) introductie TEE probe, (Vlot/moeizaam) verloop van onderzoek zonder complicatie.
+VERSLAG:
+- Linker ventrikel is (...), (niet/mild/matig/ernstig) gedilateerd en (...)contractiel (zonder/met) regionale wandbewegingstoornissen.
+- Rechter ventrikel is (...), (...) gedilateerd en (...)contractiel.
+- Atria zijn (...) gedilateerd.
+- Linker hartoortje is (...), (geen/beperkt) spontaan contrast, zonder toegevoegde structuur. Snelheden: (...) cm/s.
+- Interatriaal septum: (...)
+- Mitralisklep: (...), insufficiëntie: (...), stenose: (...).
+- Aortaklep: (...), insufficiëntie: (...), stenose: (...).
+- Tricuspiedklep: (...), insufficiëntie: (...).
+- Pulmonalisklep: (...).
+- Aorta ascendens: (...).
+- Pulmonale arterie: (...).
+- VCI/levervenes: (...).
+- Pericard: (...)."""
+        else:
+            template_instruction = (
+                f"Schrijf een gestructureerd medisch verslag voor een cardiologische {verslag_type}, "
+                "met relevante secties zoals voorgeschiedenis, anamnese, klinisch onderzoek, aanvullend onderzoek, "
+                "thuismedicatie, conclusie en beleid. Vermeld enkel wat expliciet gezegd wordt. Laat irrelevante of "
+                "niet-gevulde onderdelen weg."
+            )
 
         structured = call_gpt([
-            {"role": "system", "content": instruction},
+            {"role": "system", "content": template_instruction},
             {"role": "user", "content": corrected}
         ])
 
