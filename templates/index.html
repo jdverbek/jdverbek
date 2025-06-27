@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8" />
-  <title>Medisch Verslag met Richtlijnen</title>
+  <title>Medisch Verslag</title>
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
     button { padding: 10px; font-size: 1em; margin-top: 10px; width: 100%; }
@@ -13,11 +13,11 @@
   </style>
 </head>
 <body>
-  <h1>🩺 Medisch verslag - met richtlijnadvies</h1>
+  <h1>🩺 Medisch verslag</h1>
 
   <form method="post" action="/transcribe" enctype="multipart/form-data" id="uploadForm">
     <label for="verslag_type">Type verslag:</label>
-    <select name="verslag_type">
+    <select name="verslag_type" id="verslag_type">
       <option value="TTE">TTE</option>
       <option value="TEE">TEE</option>
       <option value="spoedconsult">Spoedconsult</option>
@@ -27,7 +27,6 @@
 
     <label>Upload audio:</label>
     <input type="file" name="audio_file" accept="audio/*" />
-
     <button type="submit">Upload en verwerk</button>
   </form>
 
@@ -36,7 +35,7 @@
   <audio id="preview" controls style="margin-top:10px; display:none;"></audio>
 
   <form id="recordUploadForm" method="post" action="/transcribe" enctype="multipart/form-data" style="display:none;">
-    <input type="hidden" name="verslag_type" value="raadpleging" />
+    <input type="hidden" name="verslag_type" value="TTE" />
     <input type="file" name="audio_file" id="recordedAudioInput" />
   </form>
 
@@ -70,6 +69,10 @@
             const preview = document.getElementById("preview");
             preview.src = URL.createObjectURL(blob);
             preview.style.display = "block";
+
+            // ⬇️ Dynamisch verslag_type koppelen aan dictaatform
+            document.querySelector('#recordUploadForm input[name="verslag_type"]').value =
+              document.querySelector('#verslag_type').value;
 
             const fileInput = document.getElementById("recordedAudioInput");
             const dataTransfer = new DataTransfer();
